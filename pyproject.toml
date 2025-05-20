@@ -1,0 +1,32 @@
+[project]
+name = "smartbasket"
+version = "0.1.0"
+description = "A local AI assistant that helps residents optimize their grocery shopping by comparing prices across different stores and suggesting the most cost-effective shopping lists based on weekly needs."
+authors = [
+    {name = "LeonByte",email = "153441621+LeonByte@users.noreply.github.com"}
+]
+license = {text = "All Rights Reserved"}
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi (>=0.115.12,<0.116.0)",
+    "uvicorn (>=0.34.2,<0.35.0)",
+    "sqlalchemy (>=2.0.41,<3.0.0)",
+    "httpx (>=0.28.1,<0.29.0)",
+    "psycopg2 (>=2.9.10,<3.0.0)",
+    "transformers (>=4.51.3,<5.0.0)",
+    "torch (>=2.7.0,<3.0.0)",
+    "discord-py (>=2.5.2,<3.0.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.5"
+black = "^25.1.0"
+isort = "^6.0.1"
+mypy = "^1.15.0"
+
