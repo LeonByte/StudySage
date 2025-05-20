@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.python-version
+
+# Poetry
+.venv/
+poetry.lock
+
+# VSCode or IDE files
+.vscode/
+.idea/
