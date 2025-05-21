@@ -1,14 +1,23 @@
 # Python
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
-.python-version
+*.py[cod]
+*$py.class
+.pytest_cache/
 
-# Poetry
+# Environment
+.env
 .venv/
-poetry.lock
+env/
+venv/
 
-# VSCode or IDE files
-.vscode/
+# Vector Database
+vector_db/
+
+# IDE
 .idea/
+.vscode/
+
+# OS
+.DS_Store
+.DS_Store?
+Thumbs.db
