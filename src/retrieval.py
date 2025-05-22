@@ -20,7 +20,7 @@ class Retriever:
         index: faiss.IndexFlatIP,
         documents: List[Dict],
         embedding_model: SentenceTransformer,
-        similarity_threshold: float = 0.6,
+        similarity_threshold: float = 0.4,
     ):
         """
         Initialize the retriever.
@@ -57,7 +57,9 @@ class Retriever:
             "testing data", "validation data", "feature extraction",
             "feature selection", "dimensionality reduction",
             "model evaluation", "hyperparameter tuning", "neural network",
-            "algorithm", "data science", "model training", "prediction"
+            "algorithm", "data science", "model training", "prediction",
+            "convolutional neural networks", "CNN", "RAG", "retrieval",
+            "augmented generation", "vector database", "embedding"
         ]
         
         # Encode query and AI/ML topics
