@@ -52,15 +52,18 @@ async def on_ready():
     )
     
     # Load or build vector database
-    vector_db = document_processor.load_vector_db()
+    vector_db_result = document_processor.load_vector_db()
     
-    if vector_db is None:
+    if vector_db_result is None:
         print("Failed to load or build vector database.")
         return
     
+    index, documents = vector_db_result
+    
     # Initialize retriever
     retriever = Retriever(
-        vector_db=vector_db,
+        index=index,
+        documents=documents,
         embedding_model=document_processor.embedding_model,
     )
     
@@ -93,18 +96,27 @@ async def ask_command(interaction: discord.Interaction, question: str):
     # Defer response to show "thinking..." status
     await interaction.response.defer()
     
-    # Check if question is relevant
-    relevant_docs, is_relevant = retriever.retrieve(question)
-    
-    if not is_relevant:
-        # Send off-topic response
-        response = generator.generate_off_topic_response()
-    else:
-        # Generate response based on relevant documents
-        response = generator.generate_response(question, relevant_docs)
-    
-    # Send response as follow-up
-    await interaction.followup.send(response)
+    try:
+        # Check if question is relevant
+        relevant_docs, is_relevant = retriever.retrieve(question)
+        
+        if not is_relevant:
+            # Send off-topic response
+            response = generator.generate_off_topic_response()
+        else:
+            # Generate response based on relevant documents
+            response = generator.generate_response(question, relevant_docs)
+        
+        # Limit response length for Discord
+        if len(response) > 2000:
+            response = response[:1997] + "..."
+        
+        # Send response as follow-up
+        await interaction.followup.send(response)
+        
+    except Exception as e:
+        print(f"Error in ask command: {e}")
+        await interaction.followup.send("Sorry, I encountered an error processing your question.")
 
 @client.event
 async def on_message(message):
@@ -122,22 +134,31 @@ async def on_message(message):
     if not isinstance(message.channel, discord.DMChannel):
         return
     
-    # Process message content as question
-    question = message.content.strip()
-    
-    # Check if question is relevant
-    relevant_docs, is_relevant = retriever.retrieve(question)
-    
-    if not is_relevant:
-        # Send off-topic response
-        response = generator.generate_off_topic_response()
-    else:
-        # Generate response based on relevant documents
-        async with message.channel.typing():
-            response = generator.generate_response(question, relevant_docs)
-    
-    # Send response
-    await message.channel.send(response)
+    try:
+        # Process message content as question
+        question = message.content.strip()
+        
+        # Check if question is relevant
+        relevant_docs, is_relevant = retriever.retrieve(question)
+        
+        if not is_relevant:
+            # Send off-topic response
+            response = generator.generate_off_topic_response()
+        else:
+            # Generate response based on relevant documents
+            async with message.channel.typing():
+                response = generator.generate_response(question, relevant_docs)
+        
+        # Limit response length for Discord
+        if len(response) > 2000:
+            response = response[:1997] + "..."
+        
+        # Send response
+        await message.channel.send(response)
+        
+    except Exception as e:
+        print(f"Error in message handler: {e}")
+        await message.channel.send("Sorry, I encountered an error processing your message.")
 
 def main():
     """Main entry point."""
