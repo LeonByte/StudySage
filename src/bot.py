@@ -105,7 +105,7 @@ async def ask_command(interaction: discord.Interaction, question: str):
             response = generator.generate_off_topic_response()
         else:
             # Generate response based on relevant documents
-            response = generator.generate_response(question, relevant_docs)
+            response = await generator.generate_response(question, relevant_docs)
         
         # Limit response length for Discord
         if len(response) > 2000:
@@ -147,7 +147,7 @@ async def on_message(message):
         else:
             # Generate response based on relevant documents
             async with message.channel.typing():
-                response = generator.generate_response(question, relevant_docs)
+                response = await generator.generate_response(question, relevant_docs)
         
         # Limit response length for Discord
         if len(response) > 2000:

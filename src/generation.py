@@ -27,7 +27,7 @@ class Generator:
         self.model = model
         self.api_url = f"{self.base_url}/api/generate"
     
-    def generate_response(
+    async def generate_response(
         self,
         query: str,
         relevant_docs: List[Dict],
@@ -67,24 +67,35 @@ INSTRUCTIONS:
 ANSWER:
 """
         
-        # Call Ollama API
+        # Call Ollama API with better error handling
         try:
-            response = requests.post(
-                self.api_url,
-                json={
-                    "model": self.model,
-                    "prompt": prompt,
-                    "stream": False,
-                    "options": {
-                        "num_predict": max_tokens,
-                        "temperature": 0.7,
+            import asyncio
+            import aiohttp
+            
+            timeout = aiohttp.ClientTimeout(total=45)  # Longer timeout
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.post(
+                    self.api_url,
+                    json={
+                        "model": self.model,
+                        "prompt": prompt,
+                        "stream": False,
+                        "options": {
+                            "num_predict": max_tokens,
+                            "temperature": 0.7,
+                        }
                     }
-                },
-                timeout=30,
-            )
-            response.raise_for_status()
-            result = response.json()
-            return result["response"]
+                ) as response:
+                    if response.status == 200:
+                        result = await response.json()
+                        return result["response"]
+                    else:
+                        print(f"Ollama API error: {response.status}")
+                        return "I'm having trouble connecting to the language model. Please try again."
+                        
+        except asyncio.TimeoutError:
+            print(f"Ollama API timeout after 45 seconds")
+            return "The response is taking too long. Please try a simpler question or try again later."
         except Exception as e:
             print(f"Error generating response: {e}")
             return "I'm having trouble generating a response right now. Please try again later."
