@@ -1,10 +1,11 @@
 """
-Handles similarity search and determines query relevance.
+Simplified retriever for vector search and relevance detection.
 """
 
 from typing import Dict, List, Tuple
 
-from langchain_community.vectorstores import FAISS
+import faiss
+import numpy as np
 from sentence_transformers import SentenceTransformer, util
 
 
@@ -16,7 +17,8 @@ class Retriever:
     
     def __init__(
         self,
-        vector_db: FAISS,
+        index: faiss.IndexFlatIP,
+        documents: List[Dict],
         embedding_model: SentenceTransformer,
         similarity_threshold: float = 0.6,
     ):
@@ -24,11 +26,13 @@ class Retriever:
         Initialize the retriever.
         
         Args:
-            vector_db: FAISS vector database
+            index: FAISS index
+            documents: List of document dictionaries
             embedding_model: SentenceTransformer model
             similarity_threshold: Minimum similarity score to consider document relevant
         """
-        self.vector_db = vector_db
+        self.index = index
+        self.documents = documents
         self.embedding_model = embedding_model
         self.similarity_threshold = similarity_threshold
     
@@ -52,11 +56,12 @@ class Retriever:
             "loss function", "activation function", "training data",
             "testing data", "validation data", "feature extraction",
             "feature selection", "dimensionality reduction",
-            "model evaluation", "hyperparameter tuning",
+            "model evaluation", "hyperparameter tuning", "neural network",
+            "algorithm", "data science", "model training", "prediction"
         ]
         
         # Encode query and AI/ML topics
-        query_embedding = self.embedding_model.encode(query)
+        query_embedding = self.embedding_model.encode([query])
         topics_embeddings = self.embedding_model.encode(ai_ml_topics)
         
         # Calculate cosine similarities
@@ -86,13 +91,20 @@ class Retriever:
             return [], False
         
         # Encode query
-        query_embedding = self.embedding_model.encode(query)
+        query_embedding = self.embedding_model.encode([query])
+        
+        # Normalize for cosine similarity
+        faiss.normalize_L2(query_embedding)
         
         # Search for relevant document chunks
-        search_results = self.vector_db.search_by_vector(
-            embedding=query_embedding,
-            k=top_k,
-        )
+        scores, indices = self.index.search(query_embedding, top_k)
         
-        # Return search results and relevance flag
-        return search_results, True
+        # Get relevant documents
+        relevant_docs = []
+        for i, (score, idx) in enumerate(zip(scores[0], indices[0])):
+            if idx != -1 and score > 0.3:  # Basic relevance threshold
+                doc = self.documents[idx].copy()
+                doc["score"] = float(score)
+                relevant_docs.append(doc)
+        
+        return relevant_docs, True
