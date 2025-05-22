@@ -8,9 +8,17 @@ authors = [
 license = {text = "All Rights Reserved"}
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = [
-]
 
+[tool.poetry]
+package-mode = false
+dependencies = [
+    "python-dotenv>=1.1.0,<2.0.0",
+    "discord.py>=2.5.0,<3.0.0",
+    "sentence-transformers>=4.0.0,<5.0.0",
+    "faiss-cpu>=1.11.0,<2.0.0",
+    "numpy>=1.24.0,<2.0.0",
+    "requests>=2.32.0,<3.0.0"
+]
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
@@ -20,4 +28,3 @@ build-backend = "poetry.core.masonry.api"
 black = "^25.1.0"
 isort = "^6.0.1"
 pytest = "^8.3.5"
-
