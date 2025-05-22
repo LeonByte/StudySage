@@ -48,8 +48,7 @@ class Generator:
         context = "\n\n".join([doc["content"] for doc in relevant_docs])
         
         # Construct prompt
-        prompt = f"""
-You are a helpful AI study assistant specialized in artificial intelligence and machine learning.
+        prompt = f"""You are a helpful AI study assistant specialized in artificial intelligence and machine learning.
 Use the following information to answer the question.
 
 CONTEXT:
@@ -81,6 +80,7 @@ ANSWER:
                         "temperature": 0.7,
                     }
                 },
+                timeout=30,
             )
             response.raise_for_status()
             result = response.json()
