@@ -67,12 +67,12 @@ INSTRUCTIONS:
 ANSWER:
 """
         
-        # Call Ollama API with better error handling
+        # Call Ollama API with async aiohttp
         try:
-            import asyncio
             import aiohttp
+            import asyncio
             
-            timeout = aiohttp.ClientTimeout(total=45)  # Longer timeout
+            timeout = aiohttp.ClientTimeout(total=60)  # 60 second timeout
             async with aiohttp.ClientSession(timeout=timeout) as session:
                 async with session.post(
                     self.api_url,
@@ -90,11 +90,11 @@ ANSWER:
                         result = await response.json()
                         return result["response"]
                     else:
-                        print(f"Ollama API error: {response.status}")
+                        print(f"Ollama API error: HTTP {response.status}")
                         return "I'm having trouble connecting to the language model. Please try again."
                         
         except asyncio.TimeoutError:
-            print(f"Ollama API timeout after 45 seconds")
+            print(f"Ollama API timeout after 60 seconds")
             return "The response is taking too long. Please try a simpler question or try again later."
         except Exception as e:
             print(f"Error generating response: {e}")
