@@ -35,6 +35,25 @@ class Retriever:
         self.documents = documents
         self.embedding_model = embedding_model
         self.similarity_threshold = similarity_threshold
+        
+        # Define key AI/ML topics for relevance checking (moved to __init__)
+        self.ai_ml_topics = [
+            "machine learning", "artificial intelligence", "neural networks",
+            "deep learning", "supervised learning", "unsupervised learning",
+            "reinforcement learning", "natural language processing",
+            "computer vision", "clustering", "classification", "regression",
+            "overfitting", "underfitting", "backpropagation", "gradient descent",
+            "loss function", "activation function", "training data",
+            "testing data", "validation data", "feature extraction",
+            "feature selection", "dimensionality reduction",
+            "model evaluation", "hyperparameter tuning", "neural network",
+            "algorithm", "data science", "model training", "prediction",
+            "convolutional neural networks", "CNN", "RAG", "retrieval",
+            "augmented generation", "vector database", "embedding",
+            "transformer", "attention", "BERT", "GPT", "language model",
+            "bias variance", "regularization", "cross validation",
+            "confusion matrix", "precision", "recall", "F1 score"
+        ]
     
     def is_query_relevant(self, query: str) -> bool:
         """

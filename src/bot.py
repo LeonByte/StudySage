@@ -13,6 +13,9 @@ from src.embedding import DocumentProcessor
 from src.generation import Generator
 from src.retrieval import Retriever
 
+from collections import defaultdict
+from datetime import datetime, timedelta
+
 # Load environment variables
 load_dotenv()
 
@@ -35,6 +38,38 @@ tree = app_commands.CommandTree(client)
 document_processor = None
 retriever = None
 generator = None
+conversation_history = defaultdict(list)
+CONTEXT_WINDOW_MINUTES = 10
+
+def add_to_history(user_id: int, message: str, is_bot: bool = False):
+    """Add message to conversation history."""
+    now = datetime.now()
+    conversation_history[user_id].append({
+        'message': message,
+        'timestamp': now,
+        'is_bot': is_bot
+    })
+    
+    # Clean old messages (older than CONTEXT_WINDOW_MINUTES)
+    cutoff = now - timedelta(minutes=CONTEXT_WINDOW_MINUTES)
+    conversation_history[user_id] = [
+        msg for msg in conversation_history[user_id]
+        if msg['timestamp'] > cutoff
+    ]
+
+def get_conversation_context(user_id: int) -> str:
+    """Get recent conversation context for the user."""
+    if user_id not in conversation_history:
+        return ""
+    
+    recent_messages = conversation_history[user_id][-4:]  # Last 4 messages
+    context_parts = []
+    
+    for msg in recent_messages:
+        sender = "Bot" if msg['is_bot'] else "Student"
+        context_parts.append(f"{sender}: {msg['message']}")
+    
+    return "\n".join(context_parts) if context_parts else ""
 
 @client.event
 async def on_ready():
@@ -86,32 +121,45 @@ async def on_ready():
     description="Ask a question about AI or machine learning",
 )
 async def ask_command(interaction: discord.Interaction, question: str):
-    """
-    Ask command handler.
-    
-    Args:
-        interaction: Discord interaction
-        question: User's question
-    """
-    # Defer response to show "thinking..." status
+    """Enhanced ask command with conversation context."""
     await interaction.response.defer()
     
     try:
-        # Check if question is relevant
-        relevant_docs, is_relevant = retriever.retrieve(question)
+        user_id = interaction.user.id
+        
+        # Add user question to history
+        add_to_history(user_id, question)
+        
+        # Get conversation context
+        context = get_conversation_context(user_id)
+        
+        # Enhanced question with context for relevance detection
+        contextual_question = f"{context}\nCurrent question: {question}" if context else question
+        
+        # Check if question is relevant (using enhanced context)
+        relevant_docs, is_relevant = retriever.retrieve(contextual_question)
+        
+        # If not relevant, try with just the current question
+        if not is_relevant:
+            relevant_docs, is_relevant = retriever.retrieve(question)
         
         if not is_relevant:
-            # Send off-topic response
-            response = generator.generate_off_topic_response()
+            # More conversational off-topic response
+            if any(word in question.lower() for word in ['why', 'how', 'explain', 'what']):
+                response = "That's an interesting question! I focus on AI and machine learning topics though. Could you ask something about neural networks, deep learning, computer vision, or other AI concepts? 😊"
+            else:
+                response = generator.generate_off_topic_response()
         else:
-            # Generate response based on relevant documents
-            response = await generator.generate_response(question, relevant_docs)
+            # Generate response with conversation context
+            response = await generator.generate_response(contextual_question, relevant_docs, context)
+        
+        # Add bot response to history
+        add_to_history(user_id, response, is_bot=True)
         
         # Limit response length for Discord
         if len(response) > 2000:
             response = response[:1997] + "..."
         
-        # Send response as follow-up
         await interaction.followup.send(response)
         
     except Exception as e:

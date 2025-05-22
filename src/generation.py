@@ -31,6 +31,7 @@ class Generator:
         self,
         query: str,
         relevant_docs: List[Dict],
+        conversation_context: str = "",
         max_tokens: int = 500,
     ) -> str:
         """
@@ -47,24 +48,28 @@ class Generator:
         # Prepare context from relevant documents
         context = "\n\n".join([doc["content"] for doc in relevant_docs])
         
+        # Build conversation-aware prompt
+        conversation_part = f"\nRECENT CONVERSATION:\n{conversation_context}\n" if conversation_context else ""
+        
         # Construct prompt
-        prompt = f"""You are a helpful AI study assistant specialized in artificial intelligence and machine learning.
-Use the following information to answer the question.
+        prompt = f"""You are StudySage, a helpful AI study assistant specialized in artificial intelligence and machine learning. You're having a conversation with a student.
 
-CONTEXT:
+KNOWLEDGE BASE CONTEXT:
 {context}
-
-QUESTION:
+{conversation_part}
+CURRENT QUESTION:
 {query}
 
 INSTRUCTIONS:
-- Answer based only on the provided context.
-- If the context doesn't contain enough information, say so honestly.
-- Keep your answer concise and to the point.
-- Use Markdown formatting when helpful.
-- Focus on being accurate and educational.
+- Answer based on the provided knowledge base context
+- Reference the recent conversation if relevant to provide continuity
+- Be conversational and encouraging, like a helpful tutor
+- If the context doesn't contain enough information, say so honestly
+- Keep your answer educational but engaging
+- Use examples when helpful
+- If this seems like a follow-up question, connect it to previous topics discussed
 
-ANSWER:
+RESPONSE:
 """
         
         # Call Ollama API with async aiohttp
