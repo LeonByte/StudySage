@@ -1,13 +1,15 @@
 """
-Handles document loading, chunking, and embedding.
+Simplified document processor for AI/ML knowledge base.
+No external dependencies beyond sentence-transformers and faiss.
 """
 
 import os
+import pickle
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
-from langchain_community.vectorstores import FAISS
-from langchain_text_splitters import MarkdownHeaderTextSplitter, RecursiveCharacterTextSplitter
+import faiss
+import numpy as np
 from sentence_transformers import SentenceTransformer
 
 
@@ -38,25 +40,31 @@ class DocumentProcessor:
         print(f"Loading embedding model: {embedding_model_name}")
         self.embedding_model = SentenceTransformer(embedding_model_name)
         
-        # Create markdown splitter with headers as metadata
-        self.md_splitter = MarkdownHeaderTextSplitter(
-            headers_to_split_on=[
-                ("#", "header1"),
-                ("##", "header2"),
-                ("###", "header3"),
-            ]
-        )
-        
-        # Create text splitter for further chunking
-        self.text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=500,
-            chunk_overlap=50,
-            length_function=len,
-        )
-        
         # Ensure directories exist
         self.knowledge_base_path.mkdir(exist_ok=True, parents=True)
         self.vector_db_path.mkdir(exist_ok=True, parents=True)
+    
+    def chunk_text(self, text: str, chunk_size: int = 500, overlap: int = 50) -> List[str]:
+        """
+        Simple text chunking function.
+        
+        Args:
+            text: Input text to chunk
+            chunk_size: Size of each chunk
+            overlap: Overlap between chunks
+            
+        Returns:
+            List of text chunks
+        """
+        words = text.split()
+        chunks = []
+        
+        for i in range(0, len(words), chunk_size - overlap):
+            chunk = ' '.join(words[i:i + chunk_size])
+            if chunk.strip():
+                chunks.append(chunk)
+        
+        return chunks
     
     def load_documents(self) -> List[Dict]:
         """
@@ -72,29 +80,21 @@ class DocumentProcessor:
             with open(file_path, "r", encoding="utf-8") as f:
                 content = f.read()
             
-            # Split document based on markdown headers
-            md_header_splits = self.md_splitter.split_text(content)
+            # Simple chunking
+            chunks = self.chunk_text(content)
             
-            # Further split into smaller chunks
-            for md_doc in md_header_splits:
-                text = md_doc.page_content
-                metadata = md_doc.metadata.copy()
-                metadata["source"] = file_path.name
-                
-                chunks = self.text_splitter.split_text(text)
-                
-                for i, chunk in enumerate(chunks):
-                    documents.append({
-                        "content": chunk,
-                        "metadata": {
-                            **metadata,
-                            "chunk_id": i,
-                        }
-                    })
+            for i, chunk in enumerate(chunks):
+                documents.append({
+                    "content": chunk,
+                    "metadata": {
+                        "source": file_path.name,
+                        "chunk_id": i,
+                    }
+                })
         
         return documents
 
-    def create_embeddings(self, documents: List[Dict]) -> List[List[float]]:
+    def create_embeddings(self, documents: List[Dict]) -> np.ndarray:
         """
         Create embeddings for document chunks.
         
@@ -102,18 +102,18 @@ class DocumentProcessor:
             documents: List of document dictionaries
             
         Returns:
-            List of document embeddings
+            Numpy array of document embeddings
         """
         texts = [doc["content"] for doc in documents]
         embeddings = self.embedding_model.encode(texts)
         return embeddings
     
-    def build_vector_db(self) -> Optional[FAISS]:
+    def build_vector_db(self) -> Optional[Tuple[faiss.IndexFlatIP, List[Dict]]]:
         """
         Build and save vector database.
         
         Returns:
-            The FAISS vector database
+            Tuple of (FAISS index, documents) or None if no documents
         """
         print("Loading documents...")
         documents = self.load_documents()
@@ -127,35 +127,45 @@ class DocumentProcessor:
         print("Creating embeddings...")
         embeddings = self.create_embeddings(documents)
         
-        print("Building vector database...")
-        dimension = len(embeddings[0])
-        vector_db = FAISS(dimension)
+        print("Building FAISS index...")
+        # Normalize embeddings for cosine similarity
+        faiss.normalize_L2(embeddings)
         
-        # Add documents to vector database
-        for i, (doc, embedding) in enumerate(zip(documents, embeddings)):
-            vector_db.add([embedding], [doc])
+        # Create FAISS index
+        dimension = embeddings.shape[1]
+        index = faiss.IndexFlatIP(dimension)  # Inner product for cosine similarity
+        index.add(embeddings)
         
-        print(f"Added {len(documents)} document chunks to vector database.")
+        print(f"Added {len(documents)} document chunks to FAISS index.")
         
-        # Save vector database
-        vector_db_path = self.vector_db_path / "faiss_index"
-        vector_db.save(str(vector_db_path))
-        print(f"Saved vector database to {vector_db_path}")
+        # Save index and documents
+        index_path = self.vector_db_path / "faiss_index.bin"
+        docs_path = self.vector_db_path / "documents.pkl"
         
-        return vector_db
+        faiss.write_index(index, str(index_path))
+        with open(docs_path, 'wb') as f:
+            pickle.dump(documents, f)
+        
+        print(f"Saved vector database to {self.vector_db_path}")
+        
+        return index, documents
     
-    def load_vector_db(self) -> Optional[FAISS]:
+    def load_vector_db(self) -> Optional[Tuple[faiss.IndexFlatIP, List[Dict]]]:
         """
         Load vector database if it exists.
         
         Returns:
-            The FAISS vector database, or None if it doesn't exist
+            Tuple of (FAISS index, documents) or None if it doesn't exist
         """
-        vector_db_path = self.vector_db_path / "faiss_index"
+        index_path = self.vector_db_path / "faiss_index.bin"
+        docs_path = self.vector_db_path / "documents.pkl"
         
-        if vector_db_path.exists():
-            print(f"Loading vector database from {vector_db_path}")
-            return FAISS.load(str(vector_db_path))
+        if index_path.exists() and docs_path.exists():
+            print(f"Loading vector database from {self.vector_db_path}")
+            index = faiss.read_index(str(index_path))
+            with open(docs_path, 'rb') as f:
+                documents = pickle.load(f)
+            return index, documents
         
         print("Vector database not found. Creating a new one...")
         return self.build_vector_db()
