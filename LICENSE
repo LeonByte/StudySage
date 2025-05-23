@@ -1,21 +1,21 @@
+MIT License
+
 Copyright (c) 2025 @LeonByte
 
-StudySage - All Rights Reserved.
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-By contributing to this repository, you agree to the following terms:
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
 
-1. **No Redistribution**: You may not copy, distribute, or redistribute any portion of the code or repository, either publicly or privately, without explicit written permission from the copyright holder.
-   
-2. **No Forking**: You are not permitted to fork this repository or create derivative works based on this code for any purpose, including personal, academic, or commercial use, unless granted explicit written permission.
-
-3. **No Commercial Use**: You may not use the code for any commercial purposes unless otherwise granted explicit permission.
-
-4. **Use for Collaboration Only**: This repository is intended for collaboration within the specific context of the project only. You are granted a non-transferable license to use and modify the code solely for contributing to this repository. Any use outside of this collaboration is strictly prohibited.
-
-5. **No Warranty**: This software is provided "as is", without any express or implied warranties, including but not limited to the implied warranties of merchantability and fitness for a particular purpose.
-
-6. **Contributions**: Any contributions made to this repository are considered to be part of this proprietary codebase, and you agree that no code from this repository may be used outside of this collaboration without express written permission from the copyright holder.
-
-**Disclaimer**: Violation of any of these terms could result in termination of your access to this repository, and legal action could be taken in accordance with applicable laws.
-
-For permission inquiries, please contact @LeonByte.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
