@@ -1,105 +1,238 @@
-# StudySage - A Discord AI Study Assistant
+# 🤖 StudySage - AI-Powered Discord Study Assistant
 
-A local-first Discord bot that uses Retrieval-Augmented Generation (RAG) to answer questions about AI and machine learning topics.
+> *A local-first Discord bot that uses Retrieval-Augmented Generation (RAG) to provide intelligent answers about AI and machine learning topics.*
 
-## Features
+[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![Discord.py](https://img.shields.io/badge/discord.py-2.5+-blue.svg)](https://discordpy.readthedocs.io/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Local-First](https://img.shields.io/badge/Local--First-🔒-green.svg)](https://www.inkandswitch.com/local-first/)
 
-- Answers questions about AI, machine learning, and deep learning
-- Uses local vector search for document retrieval
-- Runs on local LLMs through Ollama (no cloud APIs)
-- Politely declines off-topic questions
-- Responds to both slash commands and direct messages
+## 🎯 Overview
 
-## Tech Stack
+StudySage is an intelligent Discord bot designed to help students learn AI and machine learning concepts through interactive Q&A. Built with a focus on **privacy, performance, and pedagogical value**, it demonstrates practical implementation of modern RAG (Retrieval-Augmented Generation) techniques.
 
-- Python 3.12+
-- Discord.py for Discord integration
-- Sentence-Transformers for document embeddings
-- FAISS for vector search
-- Ollama with Mistral for text generation
-- Markdown files for knowledge base
+### Why StudySage?
 
-## Setup
+- 🔒 **Privacy-First**: Runs entirely locally - no data sent to external APIs
+- 🧠 **Smart Context**: Understands conversation flow and follow-up questions  
+- 📚 **Comprehensive Knowledge**: Covers 8 core AI/ML domains with detailed explanations
+- ⚡ **Real-Time**: Fast responses powered by local vector search and LLMs
+- 🎓 **Educational**: Perfect for students, researchers, and AI enthusiasts
+
+## ✨ Features
+
+### Core Functionality
+- **📖 Knowledge Base**: 8 comprehensive AI/ML topics (17 document chunks)
+- **🔍 Vector Search**: FAISS-powered semantic similarity matching
+- **🤖 Local LLM**: Mistral integration via Ollama (fully offline)
+- **💬 Conversational**: Maintains context for natural follow-up questions
+- **🎯 Smart Filtering**: Politely redirects off-topic queries to stay focused
+
+### Technical Highlights
+- **RAG Pipeline**: Complete retrieval-augmented generation implementation
+- **Async Architecture**: Non-blocking Discord interactions
+- **Context Memory**: Tracks conversation history for better responses
+- **Multi-Interface**: Supports both slash commands (`/ask`) and direct messages
+- **Production Ready**: Error handling, timeouts, and graceful degradation
+
+## 🛠️ Tech Stack
+
+| Component | Technology | Purpose |
+|-----------|------------|---------|
+| **Bot Framework** | Discord.py 2.5+ | Discord integration and command handling |
+| **Embeddings** | Sentence-Transformers | Document and query vectorization |
+| **Vector Database** | FAISS | Fast similarity search and retrieval |
+| **Language Model** | Mistral (via Ollama) | Response generation and reasoning |
+| **Knowledge Base** | Markdown files | Structured AI/ML educational content |
+| **Environment** | Python 3.12+ & Poetry | Dependency management and execution |
+
+## 🚀 Quick Start
 
 ### Prerequisites
 
-- Python 3.12+
-- Poetry 2.1.2+
-- Ollama installed and running
+- **Python 3.12+** installed
+- **Poetry 2.1.2+** for dependency management
+- **Ollama** installed and running
+- **Discord bot token** (from Discord Developer Portal)
 
 ### Installation
 
-1. Clone the repository
-```bash
-git clone https://github.com/LeonByte/StudySage.git
-cd StudySage
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/LeonByte/StudySage.git
+   cd StudySage
+   ```
+
+2. **Install dependencies**
+   ```bash
+   poetry install
+   ```
+
+3. **Activate the virtual environment (multiple options)**
+   ```bash
+   poetry env activate  # Shows the activation command, which you then need to run
+   ```
+
+   ```bash
+   source $(poetry env info --path)/bin/activate
+   ```
+
+   ```bash
+   source /path/to/your/virtualenv/bin/activate  # Alternately, use the full path shown by 'poetry env activate'
+   ```
+
+4. **Set up Ollama with Mistral**
+   ```bash
+   # Install Ollama (if not already installed)
+   curl -fsSL https://ollama.com/install.sh | sh
+   
+   # Pull the Mistral model
+   ollama pull mistral
+   
+   # Verify Ollama is running
+   ollama run mistral "Hello, world!"
+   ```
+
+5. **Configure environment variables**
+   
+   Create a `.env` file in the project root:
+   ```env
+   DISCORD_TOKEN=your_discord_bot_token_here
+   DISCORD_GUILD_ID=your_guild_id_here
+   OLLAMA_BASE_URL=http://localhost:11434
+   LLM_MODEL=mistral
+   VECTOR_DB_PATH=./vector_db
+   KNOWLEDGE_BASE_PATH=./knowledge_base
+   EMBEDDING_MODEL=all-MiniLM-L6-v2
+   ```
+
+6. **Run the bot**
+   ```bash
+   poetry run python main.py
+   ```
+
+### Discord Bot Setup
+
+1. Go to [Discord Developer Portal](https://discord.com/developers/applications)
+2. Create a new application and bot
+3. Enable **Message Content Intent** in Bot settings
+4. Copy the bot token to your `.env` file
+5. Invite bot to your server with appropriate permissions
+
+## 💡 Usage Examples
+
+### Slash Commands (Recommended)
+```
+/ask What is overfitting in machine learning?
+/ask How do CNNs work in computer vision?
+/ask Explain the difference between supervised and unsupervised learning
 ```
 
-2. Install dependencies
-```bash
-poetry install
+### Direct Messages
+Simply DM the bot with your questions:
+```
+What is RAG?
+How does backpropagation work?
+What are the main challenges in NLP?
 ```
 
-3. Activate the virtual environment (multiple options)
+### Conversation Flow
+```
+Student: What is a neural network?
+StudySage: [Detailed explanation of neural networks...]
 
-```bash
-poetry env activate  # Shows the activation command, which you then need to run
+Student: How do they learn?
+StudySage: [Explains backpropagation with context from previous question...]
 ```
 
-```bash
-source $(poetry env info --path)/bin/activate
-```
-#### OR
-
-```bash
-source /path/to/your/virtualenv/bin/activate  # Use the full path shown by 'poetry env activate'
-```
-
-4. Create a `.env` file with your Discord token
-```
-DISCORD_TOKEN=your_discord_bot_token
-DISCORD_GUILD_ID=your_guild_id
-OLLAMA_BASE_URL=http://localhost:11434
-LLM_MODEL=mistral
-VECTOR_DB_PATH=./vector_db
-KNOWLEDGE_BASE_PATH=./knowledge_base
-EMBEDDING_MODEL=all-MiniLM-L6-v2
-```
-
-5. Pull the Mistral model for Ollama
-```bash
-ollama pull mistral
-```
-
-### Running the bot
-
-```bash
-poetry run python main.py
-```
-
-## Usage
-
-- Use the `/ask` command in your Discord server, e.g., `/ask What is overfitting?`
-- Or send a direct message to the bot with your question
-
-## Project Structure
+## 📁 Project Structure
 
 ```
-discord-ai-assistant/
-├── .env                      # Environment variables
-├── knowledge_base/           # AI/ML markdown files
-├── src/
-│   ├── bot.py                # Discord bot implementation
-│   ├── embedding.py          # Document embedding and chunking
-│   ├── retrieval.py          # Vector search + relevance detection
-│   └── generation.py         # LLM response generation
-└── main.py                   # Entry point
+StudySage/
+├── 📄 README.md                           # This file
+├── 📄 LICENSE                             # MIT License
+├── 📄 pyproject.toml                      # Poetry configuration
+├── 📄 .env                                # Environment variables (create this)
+├── 📁 knowledge_base/                     # AI/ML knowledge base (8 topics)
+│   ├── 📝 introduction-to-ml.md           # ML fundamentals & learning types
+│   ├── 📝 deep-learning-basics.md         # Neural networks & backpropagation  
+│   ├── 📝 model-evaluation.md             # Metrics & validation strategies
+│   ├── 📝 overfitting-and-regularization.md # Bias-variance & regularization
+│   ├── 📝 natural-language-processing.md # NLP & transformer architectures
+│   ├── 📝 computer-vision-basics.md       # CNNs & image processing
+│   ├── 📝 ml-project-pipeline.md          # MLOps & deployment workflows
+│   └── 📝 rag-and-llms.md                 # RAG systems & vector databases
+├── 📁 src/                                # Source code
+│   ├── 🐍 bot.py                          # Discord bot & conversation logic
+│   ├── 🐍 embedding.py                    # Document processing & embeddings
+│   ├── 🐍 retrieval.py                    # Vector search & relevance detection
+│   └── 🐍 generation.py                   # LLM integration & response generation
+├── 📁 vector_db/                          # Generated vector database (auto-created)
+├── 🐍 main.py                             # Application entry point
+├── 🔧 debug_relevance.py                  # Relevance threshold testing
+└── 🔧 debug_vector_search.py              # Vector search debugging
 ```
 
-## License
+## 🧠 RAG Architecture
 
-This project is licensed under All Rights Reserved. See the [LICENSE](./LICENSE) file for details.
+StudySage implements a complete RAG (Retrieval-Augmented Generation) pipeline:
+
+```
+User Query → Relevance Check → Vector Search → Document Retrieval → LLM Generation → Response
+     ↓              ↓               ↓               ↓                ↓              ↓
+"What is CNN?" → AI/ML topic? → Find similar → Get CNN docs → Generate with → Detailed answer
+                     ✅           embeddings     context        context       about CNNs
+```
+
+### Key Components:
+
+1. **Document Processing**: Markdown files → chunked text → vector embeddings
+2. **Relevance Detection**: Query classification to ensure AI/ML focus
+3. **Vector Retrieval**: Semantic search through knowledge base using FAISS
+4. **Context Integration**: Combine retrieved documents with conversation history
+5. **Response Generation**: Local LLM generates educational, contextual responses
+
+## 🎓 Educational Value
+
+This project demonstrates:
+
+- **Modern RAG Implementation**: Complete pipeline from documents to responses
+- **Vector Database Usage**: Practical application of semantic search
+- **Local LLM Integration**: Privacy-preserving AI without external APIs  
+- **Conversation Design**: Context-aware chatbot development
+- **Production Patterns**: Error handling, async programming, and deployment considerations
+
+## 🤝 Contributing
+
+We welcome contributions! Here's how to get started:
+
+1. **Fork the repository**
+2. **Create a feature branch**: `git switch -c feature/amazing-feature`
+3. **Add your changes**: Focus on educational content or technical improvements
+4. **Test thoroughly**: Ensure your changes work with the existing RAG pipeline
+5. **Submit a pull request**: Include a clear description of your changes
+
+### Contribution Ideas:
+- 📚 Add new AI/ML knowledge base topics
+- 🔧 Improve retrieval accuracy or response quality  
+- 🎨 Enhance user experience and conversation flow
+- 📊 Add evaluation metrics and testing frameworks
+- 🚀 Optimize performance for larger knowledge bases
+
+## 📜 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- **[Ollama](https://ollama.com/)** for local LLM hosting
+- **[FAISS](https://github.com/facebookresearch/faiss)** for efficient vector search
+- **[Sentence-Transformers](https://www.sbert.net/)** for semantic embeddings
+- **[Discord.py](https://discordpy.readthedocs.io/)** for Discord integration
+- **Open source community** for inspiration and tools
 
 ---
 
-**Note**: This is an educational project created for an AI course. It uses local-first technologies and is designed to demonstrate RAG capabilities in a practical application.
+<div align="center">
+  <sub>Built with ❤️ for AI education • <a href="#-quick-start">Get Started</a> • <a href="https://github.com/LeonByte/StudySage/issues">Report Bug</a> • <a href="https://github.com/LeonByte/StudySage/issues">Request Feature</a></sub>
+</div>
