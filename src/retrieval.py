@@ -1,5 +1,5 @@
 """
-Simplified retriever for vector search and relevance detection.
+Optimized retriever for vector search and relevance detection.
 """
 
 from typing import Dict, List, Tuple
@@ -11,8 +11,7 @@ from sentence_transformers import SentenceTransformer, util
 
 class Retriever:
     """
-    Retrieve relevant document chunks based on query
-    and determine if query is on-topic.
+    Retrieve relevant document chunks and determine query relevance.
     """
     
     def __init__(
@@ -24,86 +23,47 @@ class Retriever:
     ):
         """
         Initialize the retriever.
-        
-        Args:
-            index: FAISS index
-            documents: List of document dictionaries
-            embedding_model: SentenceTransformer model
-            similarity_threshold: Minimum similarity score to consider document relevant
         """
         self.index = index
         self.documents = documents
         self.embedding_model = embedding_model
         self.similarity_threshold = similarity_threshold
         
-        # Define key AI/ML topics for relevance checking (moved to __init__)
+        # AI/ML topic keywords for relevance checking
         self.ai_ml_topics = [
             "machine learning", "artificial intelligence", "neural networks",
             "deep learning", "supervised learning", "unsupervised learning",
             "reinforcement learning", "natural language processing",
             "computer vision", "clustering", "classification", "regression",
             "overfitting", "underfitting", "backpropagation", "gradient descent",
-            "loss function", "activation function", "training data",
-            "testing data", "validation data", "feature extraction",
-            "feature selection", "dimensionality reduction",
-            "model evaluation", "hyperparameter tuning", "neural network",
-            "algorithm", "data science", "model training", "prediction",
-            "convolutional neural networks", "CNN", "RAG", "retrieval",
-            "augmented generation", "vector database", "embedding",
+            "CNN", "convolutional neural networks", "RAG", "retrieval",
             "transformer", "attention", "BERT", "GPT", "language model",
-            "bias variance", "regularization", "cross validation",
-            "confusion matrix", "precision", "recall", "F1 score"
+            "algorithm", "data science", "model training", "prediction"
         ]
     
-    def is_query_relevant(self, query: str) -> bool:
+    def is_query_relevant(self, query: str, conversation_context: str = "") -> bool:
         """
-        Determine if query is relevant to knowledge base topics (AI/ML).
-        
-        Args:
-            query: User's query
-            
-        Returns:
-            True if query is relevant, False otherwise
+        Determine if query is relevant to AI/ML topics.
         """
-        # Define key AI/ML topics for relevance checking
-        ai_ml_topics = [
-            "machine learning", "artificial intelligence", "neural networks",
-            "deep learning", "supervised learning", "unsupervised learning",
-            "reinforcement learning", "natural language processing",
-            "computer vision", "clustering", "classification", "regression",
-            "overfitting", "underfitting", "backpropagation", "gradient descent",
-            "loss function", "activation function", "training data",
-            "testing data", "validation data", "feature extraction",
-            "feature selection", "dimensionality reduction",
-            "model evaluation", "hyperparameter tuning", "neural network",
-            "algorithm", "data science", "model training", "prediction",
-            "convolutional neural networks", "CNN", "RAG", "retrieval",
-            "augmented generation", "vector database", "embedding"
-        ]
+        # Check for follow-up words with context
+        follow_up_words = ['why', 'how', 'explain', 'difference', 'compare', 'what about']
+        if any(word in query.lower() for word in follow_up_words) and conversation_context:
+            # If conversation has AI/ML terms, allow follow-up
+            ai_terms = ['neural', 'ai', 'machine learning', 'cnn', 'rag', 'model', 'algorithm']
+            if any(term in conversation_context.lower() for term in ai_terms):
+                return True
         
-        # Encode query and AI/ML topics
+        # Standard relevance check
         query_embedding = self.embedding_model.encode([query])
-        topics_embeddings = self.embedding_model.encode(ai_ml_topics)
-        
-        # Calculate cosine similarities
+        topics_embeddings = self.embedding_model.encode(self.ai_ml_topics)
         similarities = util.cos_sim(query_embedding, topics_embeddings)
-        
-        # Get maximum similarity score
         max_similarity = similarities.max().item()
         
-        # Return whether query is relevant based on threshold
         return max_similarity >= self.similarity_threshold
     
     def retrieve(self, query: str, top_k: int = 3) -> Tuple[List[Dict], bool]:
         """
         Retrieve most relevant document chunks for query.
-        
-        Args:
-            query: User's query
-            top_k: Number of top results to retrieve
-            
-        Returns:
-            Tuple of (relevant_docs, is_relevant)
         """
         # Check if query is relevant to AI/ML
         is_relevant = self.is_query_relevant(query)
@@ -123,7 +83,7 @@ class Retriever:
         # Get relevant documents
         relevant_docs = []
         for i, (score, idx) in enumerate(zip(scores[0], indices[0])):
-            if idx != -1 and score > 0.3:  # Basic relevance threshold
+            if idx != -1 and score > 0.2:  # Lower threshold for better results
                 doc = self.documents[idx].copy()
                 doc["score"] = float(score)
                 relevant_docs.append(doc)

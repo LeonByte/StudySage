@@ -1,5 +1,5 @@
 """
-Handles prompt construction and LLM response generation.
+Simplified LLM response generation for better performance.
 """
 
 import requests
@@ -32,74 +32,56 @@ class Generator:
         query: str,
         relevant_docs: List[Dict],
         conversation_context: str = "",
-        max_tokens: int = 500,
+        max_tokens: int = 400,
     ) -> str:
         """
-        Generate response based on query and relevant documents.
-        
-        Args:
-            query: User's query
-            relevant_docs: List of relevant document dictionaries
-            max_tokens: Maximum tokens to generate
-            
-        Returns:
-            Generated response
+        Generate response with simplified prompt for better performance.
         """
-        # Prepare context from relevant documents
-        context = "\n\n".join([doc["content"] for doc in relevant_docs])
+        # Prepare context (limit to 2 most relevant docs)
+        top_docs = relevant_docs[:2]
+        context = "\n\n".join([doc["content"][:300] for doc in top_docs])  # Limit doc length
         
-        # Build conversation-aware prompt
-        conversation_part = f"\nRECENT CONVERSATION:\n{conversation_context}\n" if conversation_context else ""
+        # Simple prompt with optional context
+        if conversation_context and len(conversation_context) > 10:
+            prompt = f"""You are StudySage, an AI tutor for machine learning topics.
+
+Previous: {conversation_context}
+
+Context: {context}
+
+Question: {query}
+
+Give a clear, educational answer based on the context. Be conversational and helpful."""
+        else:
+            prompt = f"""You are StudySage, an AI tutor for machine learning topics.
+
+Context: {context}
+
+Question: {query}
+
+Give a clear, educational answer based on the context."""
         
-        # Construct prompt
-        prompt = f"""You are StudySage, a helpful AI study assistant specialized in artificial intelligence and machine learning. You're having a conversation with a student.
-
-KNOWLEDGE BASE CONTEXT:
-{context}
-{conversation_part}
-CURRENT QUESTION:
-{query}
-
-INSTRUCTIONS:
-- Answer based on the provided knowledge base context
-- Reference the recent conversation if relevant to provide continuity
-- Be conversational and encouraging, like a helpful tutor
-- If the context doesn't contain enough information, say so honestly
-- Keep your answer educational but engaging
-- Use examples when helpful
-- If this seems like a follow-up question, connect it to previous topics discussed
-
-RESPONSE:
-"""
-        
-        # Call Ollama API with async aiohttp
+        # Use synchronous requests for reliability
         try:
-            import aiohttp
-            import asyncio
-            
-            timeout = aiohttp.ClientTimeout(total=60)  # 60 second timeout
-            async with aiohttp.ClientSession(timeout=timeout) as session:
-                async with session.post(
-                    self.api_url,
-                    json={
-                        "model": self.model,
-                        "prompt": prompt,
-                        "stream": False,
-                        "options": {
-                            "num_predict": max_tokens,
-                            "temperature": 0.7,
-                        }
+            response = requests.post(
+                self.api_url,
+                json={
+                    "model": self.model,
+                    "prompt": prompt,
+                    "stream": False,
+                    "options": {
+                        "num_predict": max_tokens,
+                        "temperature": 0.7,
                     }
-                ) as response:
-                    if response.status == 200:
-                        result = await response.json()
-                        return result["response"]
-                    else:
-                        print(f"Ollama API error: HTTP {response.status}")
-                        return "I'm having trouble connecting to the language model. Please try again."
-                        
-        except asyncio.TimeoutError:
-            print(f"Ollama API timeout after 60 seconds")
+                },
+                timeout=45,  # Reasonable timeout
+            )
+            response.raise_for_status()
+            result = response.json()
+            return result["response"]
+            
+        except requests.exceptions.Timeout:
+            print(f"Ollama API timeout after 45 seconds")
             return "The response is taking too long. Please try a simpler question or try again later."
         except Exception as e:
             print(f"Error generating response: {e}")
@@ -108,8 +90,5 @@ RESPONSE:
     def generate_off_topic_response(self) -> str:
         """
         Generate friendly response for off-topic queries.
-        
-        Returns:
-            Off-topic response
         """
         return "I'm focused on AI and machine learning topics only 😊 Let's keep learning! Feel free to ask me anything about neural networks, deep learning, or other AI concepts."

@@ -1,9 +1,11 @@
 """
-Discord bot implementation for AI assistant.
+Discord bot implementation for AI assistant with conversation context.
 """
 
 import os
 from pathlib import Path
+from collections import defaultdict
+from datetime import datetime, timedelta
 
 import discord
 from discord import app_commands
@@ -12,9 +14,6 @@ from dotenv import load_dotenv
 from src.embedding import DocumentProcessor
 from src.generation import Generator
 from src.retrieval import Retriever
-
-from collections import defaultdict
-from datetime import datetime, timedelta
 
 # Load environment variables
 load_dotenv()
@@ -38,38 +37,40 @@ tree = app_commands.CommandTree(client)
 document_processor = None
 retriever = None
 generator = None
+
+# Conversation memory (simplified)
 conversation_history = defaultdict(list)
-CONTEXT_WINDOW_MINUTES = 10
+CONTEXT_WINDOW_MINUTES = 5  # Reduced from 10
 
 def add_to_history(user_id: int, message: str, is_bot: bool = False):
     """Add message to conversation history."""
     now = datetime.now()
     conversation_history[user_id].append({
-        'message': message,
+        'message': message[:200],  # Limit message length
         'timestamp': now,
         'is_bot': is_bot
     })
     
-    # Clean old messages (older than CONTEXT_WINDOW_MINUTES)
+    # Keep only last 3 messages and clean old ones
     cutoff = now - timedelta(minutes=CONTEXT_WINDOW_MINUTES)
-    conversation_history[user_id] = [
+    recent_messages = [
         msg for msg in conversation_history[user_id]
         if msg['timestamp'] > cutoff
     ]
+    conversation_history[user_id] = recent_messages[-3:]  # Only keep last 3
 
-def get_conversation_context(user_id: int) -> str:
-    """Get recent conversation context for the user."""
-    if user_id not in conversation_history:
+def get_simple_context(user_id: int) -> str:
+    """Get simple conversation context for the user."""
+    if user_id not in conversation_history or len(conversation_history[user_id]) < 2:
         return ""
     
-    recent_messages = conversation_history[user_id][-4:]  # Last 4 messages
-    context_parts = []
+    # Only use the last user message for context
+    last_messages = conversation_history[user_id][-2:]
+    if len(last_messages) >= 2:
+        last_user_msg = last_messages[-2]['message'] if not last_messages[-2]['is_bot'] else ""
+        return last_user_msg[:100] if last_user_msg else ""  # Limit context
     
-    for msg in recent_messages:
-        sender = "Bot" if msg['is_bot'] else "Student"
-        context_parts.append(f"{sender}: {msg['message']}")
-    
-    return "\n".join(context_parts) if context_parts else ""
+    return ""
 
 @client.event
 async def on_ready():
@@ -121,7 +122,7 @@ async def on_ready():
     description="Ask a question about AI or machine learning",
 )
 async def ask_command(interaction: discord.Interaction, question: str):
-    """Enhanced ask command with conversation context."""
+    """Ask command with light conversation context."""
     await interaction.response.defer()
     
     try:
@@ -130,28 +131,28 @@ async def ask_command(interaction: discord.Interaction, question: str):
         # Add user question to history
         add_to_history(user_id, question)
         
-        # Get conversation context
-        context = get_conversation_context(user_id)
+        # Get simple context
+        simple_context = get_simple_context(user_id)
         
-        # Enhanced question with context for relevance detection
-        contextual_question = f"{context}\nCurrent question: {question}" if context else question
-        
-        # Check if question is relevant (using enhanced context)
-        relevant_docs, is_relevant = retriever.retrieve(contextual_question)
-        
-        # If not relevant, try with just the current question
-        if not is_relevant:
-            relevant_docs, is_relevant = retriever.retrieve(question)
+        # Check relevance (with light context if available)
+        if simple_context:
+            # Try with context first
+            is_relevant = retriever.is_query_relevant(question, simple_context)
+        else:
+            is_relevant = retriever.is_query_relevant(question)
         
         if not is_relevant:
-            # More conversational off-topic response
-            if any(word in question.lower() for word in ['why', 'how', 'explain', 'what']):
-                response = "That's an interesting question! I focus on AI and machine learning topics though. Could you ask something about neural networks, deep learning, computer vision, or other AI concepts? 😊"
+            # Friendly off-topic response
+            if any(word in question.lower() for word in ['why', 'how', 'explain', 'what', 'difference']):
+                response = "That's an interesting question! I focus on AI and machine learning topics though. Could you ask something about neural networks, deep learning, or other AI concepts? 😊"
             else:
                 response = generator.generate_off_topic_response()
         else:
-            # Generate response with conversation context
-            response = await generator.generate_response(contextual_question, relevant_docs, context)
+            # Get relevant documents
+            relevant_docs, _ = retriever.retrieve(question)
+            
+            # Generate response (simplified)
+            response = await generator.generate_response(question, relevant_docs, simple_context)
         
         # Add bot response to history
         add_to_history(user_id, response, is_bot=True)
@@ -169,10 +170,7 @@ async def ask_command(interaction: discord.Interaction, question: str):
 @client.event
 async def on_message(message):
     """
-    Handle direct messages to bot.
-    
-    Args:
-        message: Discord message
+    Handle direct messages to bot with conversation context.
     """
     # Ignore messages from bot itself
     if message.author == client.user:
@@ -183,19 +181,36 @@ async def on_message(message):
         return
     
     try:
-        # Process message content as question
+        user_id = message.author.id
         question = message.content.strip()
         
-        # Check if question is relevant
-        relevant_docs, is_relevant = retriever.retrieve(question)
+        # Add user question to history
+        add_to_history(user_id, question)
+        
+        # Get simple context
+        simple_context = get_simple_context(user_id)
+        
+        # Check relevance (with light context if available)
+        if simple_context:
+            is_relevant = retriever.is_query_relevant(question, simple_context)
+        else:
+            is_relevant = retriever.is_query_relevant(question)
         
         if not is_relevant:
-            # Send off-topic response
-            response = generator.generate_off_topic_response()
+            # Friendly off-topic response
+            if any(word in question.lower() for word in ['why', 'how', 'explain', 'what', 'difference']):
+                response = "That's an interesting question! I focus on AI and machine learning topics though. Could you ask something about neural networks, deep learning, or other AI concepts? 😊"
+            else:
+                response = generator.generate_off_topic_response()
         else:
-            # Generate response based on relevant documents
+            # Get relevant documents and generate response
+            relevant_docs, _ = retriever.retrieve(question)
+            
             async with message.channel.typing():
-                response = await generator.generate_response(question, relevant_docs)
+                response = await generator.generate_response(question, relevant_docs, simple_context)
+        
+        # Add bot response to history
+        add_to_history(user_id, response, is_bot=True)
         
         # Limit response length for Discord
         if len(response) > 2000:
