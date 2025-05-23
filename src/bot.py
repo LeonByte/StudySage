@@ -26,22 +26,14 @@ LLM_MODEL = os.getenv("LLM_MODEL", "mistral")
 VECTOR_DB_PATH = os.getenv("VECTOR_DB_PATH", "./vector_db")
 KNOWLEDGE_BASE_PATH = os.getenv("KNOWLEDGE_BASE_PATH", "./knowledge_base")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
-
-# Your Discord User ID (replace with your actual ID)
 OWNER_ID = int(os.getenv("OWNER_ID", "0"))
-
-# Initialize Discord client
-intents = discord.Intents.default()
-intents.message_content = True
-client = discord.Client(intents=intents)
-tree = app_commands.CommandTree(client)
 
 # Initialize components
 document_processor = None
 retriever = None
 generator = None
 
-# Conversation memory (simplified)
+# Conversation memory
 conversation_history = defaultdict(list)
 CONTEXT_WINDOW_MINUTES = 5
 
@@ -54,7 +46,6 @@ def add_to_history(user_id: int, message: str, is_bot: bool = False):
         'is_bot': is_bot
     })
     
-    # Keep only last 3 messages and clean old ones
     cutoff = now - timedelta(minutes=CONTEXT_WINDOW_MINUTES)
     recent_messages = [
         msg for msg in conversation_history[user_id]
@@ -74,73 +65,136 @@ def get_simple_context(user_id: int) -> str:
     
     return ""
 
-@client.event
-async def on_ready():
-    """Called when Discord bot is ready."""
-    global document_processor, retriever, generator
-    
-    print(f"Logged in as {client.user} (ID: {client.user.id})")
-    print(f"Bot is in {len(client.guilds)} guild(s)")
-    for guild in client.guilds:
-        print(f"  - {guild.name} (ID: {guild.id})")
-    print("------")
-    
-    # Initialize document processor
-    document_processor = DocumentProcessor(
-        knowledge_base_path=KNOWLEDGE_BASE_PATH,
-        vector_db_path=VECTOR_DB_PATH,
-        embedding_model_name=EMBEDDING_MODEL,
-    )
-    
-    # Load or build vector database
-    vector_db_result = document_processor.load_vector_db()
-    
-    if vector_db_result is None:
-        print("Failed to load or build vector database.")
-        return
-    
-    index, documents = vector_db_result
-    print(f"Loaded {len(documents)} documents into vector database")
-    
-    # Initialize retriever
-    retriever = Retriever(
-        index=index,
-        documents=documents,
-        embedding_model=document_processor.embedding_model,
-    )
-    
-    # Initialize generator
-    generator = Generator(
-        base_url=OLLAMA_BASE_URL,
-        model=LLM_MODEL,
-    )
-    
-    # Command synchronization
-    try:
-        print("Attempting to sync slash commands...")
-        
-        if DISCORD_GUILD_ID:
-            guild = discord.Object(id=DISCORD_GUILD_ID)
-            synced = await tree.sync(guild=guild)
-            print(f"✅ Synced {len(synced)} commands to guild {DISCORD_GUILD_ID}")
-            
-            # List synced commands
-            for cmd in synced:
-                print(f"  - /{cmd.name}: {cmd.description}")
-        else:
-            synced = await tree.sync()
-            print(f"✅ Synced {len(synced)} commands globally (may take up to 1 hour)")
-            
-    except discord.HTTPException as e:
-        print(f"❌ HTTP Error syncing commands: {e}")
-        print(f"Status: {e.status}, Text: {e.text}")
-    except discord.Forbidden as e:
-        print(f"❌ Forbidden error: Bot lacks permissions to register slash commands")
-        print(f"Make sure the bot was invited with 'applications.commands' scope")
-    except Exception as e:
-        print(f"❌ Unexpected error syncing commands: {e}")
+# FIXED: Use class-based approach from official Discord.py examples
+class StudySageBot(discord.Client):
+    def __init__(self, *, intents: discord.Intents):
+        super().__init__(intents=intents)
+        # Create the CommandTree here so it exists when decorators are processed
+        self.tree = app_commands.CommandTree(self)
 
-@tree.command(
+    async def setup_hook(self):
+        """Called when the bot is starting up."""
+        global document_processor, retriever, generator
+        
+        print("📚 Initializing document processor...")
+        document_processor = DocumentProcessor(
+            knowledge_base_path=KNOWLEDGE_BASE_PATH,
+            vector_db_path=VECTOR_DB_PATH,
+            embedding_model_name=EMBEDDING_MODEL,
+        )
+        
+        # Load or build vector database
+        vector_db_result = document_processor.load_vector_db()
+        
+        if vector_db_result is None:
+            print("❌ Failed to load or build vector database.")
+            return
+        
+        index, documents = vector_db_result
+        print(f"✅ Loaded {len(documents)} documents into vector database")
+        
+        # Initialize retriever
+        retriever = Retriever(
+            index=index,
+            documents=documents,
+            embedding_model=document_processor.embedding_model,
+        )
+        
+        # Initialize generator
+        generator = Generator(
+            base_url=OLLAMA_BASE_URL,
+            model=LLM_MODEL,
+        )
+        
+        # Sync commands
+        print("🔄 Attempting to sync slash commands...")
+        try:
+            if DISCORD_GUILD_ID:
+                guild = discord.Object(id=DISCORD_GUILD_ID)
+                synced = await self.tree.sync(guild=guild)
+                print(f"✅ Synced {len(synced)} commands to guild {DISCORD_GUILD_ID}")
+                
+                # List synced commands
+                for cmd in synced:
+                    print(f"  - /{cmd.name}: {cmd.description}")
+            else:
+                synced = await self.tree.sync()
+                print(f"✅ Synced {len(synced)} commands globally")
+                
+        except discord.HTTPException as e:
+            print(f"❌ HTTP Error syncing commands: {e}")
+        except discord.Forbidden as e:
+            print(f"❌ Forbidden error: Bot lacks permissions")
+            print(f"Use this invite URL: https://discord.com/api/oauth2/authorize?client_id={self.user.id}&permissions=2147568640&scope=bot%20applications.commands")
+        except Exception as e:
+            print(f"❌ Unexpected error syncing commands: {e}")
+
+    async def on_ready(self):
+        """Called when Discord bot is ready."""
+        print(f"🤖 Logged in as {self.user} (ID: {self.user.id})")
+        print(f"🏠 Bot is in {len(self.guilds)} guild(s)")
+        for guild in self.guilds:
+            print(f"  - {guild.name} (ID: {guild.id})")
+        print("------")
+
+    async def on_message(self, message):
+        """Handle direct messages to bot with conversation context."""
+        if message.author == self.user:
+            return
+        
+        if not isinstance(message.channel, discord.DMChannel):
+            return
+        
+        try:
+            user_id = message.author.id
+            question = message.content.strip()
+            
+            print(f"💬 DM from {message.author.name}: {question}")
+            
+            # Add user question to history
+            add_to_history(user_id, question)
+            
+            # Get simple context
+            simple_context = get_simple_context(user_id)
+            
+            # Check relevance
+            if simple_context:
+                is_relevant = retriever.is_query_relevant(question, simple_context)
+            else:
+                is_relevant = retriever.is_query_relevant(question)
+            
+            if not is_relevant:
+                if any(word in question.lower() for word in ['why', 'how', 'explain', 'what', 'difference']):
+                    response = "That's an interesting question! I focus on AI and machine learning topics though. Could you ask something about neural networks, deep learning, or other AI concepts? 😊"
+                else:
+                    response = generator.generate_off_topic_response()
+            else:
+                relevant_docs, _ = retriever.retrieve(question)
+                
+                async with message.channel.typing():
+                    response = await generator.generate_response(question, relevant_docs, simple_context)
+            
+            # Add bot response to history
+            add_to_history(user_id, response, is_bot=True)
+            
+            # Limit response length for Discord
+            if len(response) > 2000:
+                response = response[:1997] + "..."
+            
+            await message.channel.send(response)
+            print(f"✅ Responded to DM successfully")
+            
+        except Exception as e:
+            print(f"❌ Error in DM handler: {e}")
+            await message.channel.send("Sorry, I encountered an error processing your message.")
+
+# Create the bot instance
+intents = discord.Intents.default()
+intents.message_content = True
+client = StudySageBot(intents=intents)
+
+# NOW define the commands - tree exists because client is created
+@client.tree.command(
     name="ask",
     description="Ask a question about AI or machine learning"
 )
@@ -196,7 +250,7 @@ async def ask_command(interaction: discord.Interaction, question: str):
         except:
             print("Failed to send error message")
 
-@tree.command(
+@client.tree.command(
     name="sync",
     description="Force sync slash commands (owner only)"
 )
@@ -214,10 +268,10 @@ async def sync_command(interaction: discord.Interaction):
         
         if DISCORD_GUILD_ID:
             guild = discord.Object(id=DISCORD_GUILD_ID)
-            synced = await tree.sync(guild=guild)
+            synced = await client.tree.sync(guild=guild)
             message = f"✅ Synced {len(synced)} commands to this guild."
         else:
-            synced = await tree.sync()
+            synced = await client.tree.sync()
             message = f"✅ Synced {len(synced)} commands globally (may take up to 1 hour)."
             
         await interaction.followup.send(message, ephemeral=True)
@@ -228,7 +282,7 @@ async def sync_command(interaction: discord.Interaction):
         await interaction.followup.send(error_msg, ephemeral=True)
         print(f"❌ Manual sync failed: {e}")
 
-@tree.command(
+@client.tree.command(
     name="status",
     description="Check bot status and configuration"
 )
@@ -263,58 +317,6 @@ async def status_command(interaction: discord.Interaction):
     except Exception as e:
         await interaction.followup.send(f"❌ Error getting status: {e}", ephemeral=True)
 
-@client.event
-async def on_message(message):
-    """Handle direct messages to bot with conversation context."""
-    if message.author == client.user:
-        return
-    
-    if not isinstance(message.channel, discord.DMChannel):
-        return
-    
-    try:
-        user_id = message.author.id
-        question = message.content.strip()
-        
-        print(f"💬 DM from {message.author.name}: {question}")
-        
-        # Add user question to history
-        add_to_history(user_id, question)
-        
-        # Get simple context
-        simple_context = get_simple_context(user_id)
-        
-        # Check relevance
-        if simple_context:
-            is_relevant = retriever.is_query_relevant(question, simple_context)
-        else:
-            is_relevant = retriever.is_query_relevant(question)
-        
-        if not is_relevant:
-            if any(word in question.lower() for word in ['why', 'how', 'explain', 'what', 'difference']):
-                response = "That's an interesting question! I focus on AI and machine learning topics though. Could you ask something about neural networks, deep learning, or other AI concepts? 😊"
-            else:
-                response = generator.generate_off_topic_response()
-        else:
-            relevant_docs, _ = retriever.retrieve(question)
-            
-            async with message.channel.typing():
-                response = await generator.generate_response(question, relevant_docs, simple_context)
-        
-        # Add bot response to history
-        add_to_history(user_id, response, is_bot=True)
-        
-        # Limit response length for Discord
-        if len(response) > 2000:
-            response = response[:1997] + "..."
-        
-        await message.channel.send(response)
-        print(f"✅ Responded to DM successfully")
-        
-    except Exception as e:
-        print(f"❌ Error in DM handler: {e}")
-        await message.channel.send("Sorry, I encountered an error processing your message.")
-
 def main():
     """Main entry point."""
     if not DISCORD_TOKEN:
@@ -326,7 +328,12 @@ def main():
     
     print("🚀 Starting StudySage Discord bot...")
     print(f"🏠 Guild ID: {DISCORD_GUILD_ID if DISCORD_GUILD_ID else 'Global sync'}")
-    client.run(DISCORD_TOKEN)
+    print(f"👤 Owner ID: {OWNER_ID if OWNER_ID else 'Not set'}")
+    
+    try:
+        client.run(DISCORD_TOKEN)
+    except Exception as e:
+        print(f"❌ Failed to start bot: {e}")
 
 if __name__ == "__main__":
     main()
