@@ -65,11 +65,13 @@ def get_simple_context(user_id: int) -> str:
     
     return ""
 
-# FIXED: Use class-based approach from official Discord.py examples
+# CREATE CLIENT FIRST
+intents = discord.Intents.default()
+intents.message_content = True
+
 class StudySageBot(discord.Client):
     def __init__(self, *, intents: discord.Intents):
         super().__init__(intents=intents)
-        # Create the CommandTree here so it exists when decorators are processed
         self.tree = app_commands.CommandTree(self)
 
     async def setup_hook(self):
@@ -105,29 +107,6 @@ class StudySageBot(discord.Client):
             base_url=OLLAMA_BASE_URL,
             model=LLM_MODEL,
         )
-        
-        # Sync commands
-        print("🔄 Attempting to sync slash commands...")
-        try:
-            if DISCORD_GUILD_ID:
-                guild = discord.Object(id=DISCORD_GUILD_ID)
-                synced = await self.tree.sync(guild=guild)
-                print(f"✅ Synced {len(synced)} commands to guild {DISCORD_GUILD_ID}")
-                
-                # List synced commands
-                for cmd in synced:
-                    print(f"  - /{cmd.name}: {cmd.description}")
-            else:
-                synced = await self.tree.sync()
-                print(f"✅ Synced {len(synced)} commands globally")
-                
-        except discord.HTTPException as e:
-            print(f"❌ HTTP Error syncing commands: {e}")
-        except discord.Forbidden as e:
-            print(f"❌ Forbidden error: Bot lacks permissions")
-            print(f"Use this invite URL: https://discord.com/api/oauth2/authorize?client_id={self.user.id}&permissions=2147568640&scope=bot%20applications.commands")
-        except Exception as e:
-            print(f"❌ Unexpected error syncing commands: {e}")
 
     async def on_ready(self):
         """Called when Discord bot is ready."""
@@ -136,6 +115,35 @@ class StudySageBot(discord.Client):
         for guild in self.guilds:
             print(f"  - {guild.name} (ID: {guild.id})")
         print("------")
+        
+        # FIXED: Copy global commands to guild, then sync
+        print("🔄 Attempting to sync slash commands...")
+        try:
+            if DISCORD_GUILD_ID:
+                guild = discord.Object(id=DISCORD_GUILD_ID)
+                
+                # Copy global commands to the guild
+                self.tree.copy_global_to(guild=guild)
+                print(f"📋 Copied global commands to guild {DISCORD_GUILD_ID}")
+                
+                # Now sync the guild
+                synced = await self.tree.sync(guild=guild)
+                print(f"✅ Synced {len(synced)} commands to guild {DISCORD_GUILD_ID}")
+                
+                # List synced commands
+                for cmd in synced:
+                    print(f"  - /{cmd.name}: {cmd.description}")
+            else:
+                # Sync globally
+                synced = await self.tree.sync()
+                print(f"✅ Synced {len(synced)} commands globally")
+                
+        except discord.HTTPException as e:
+            print(f"❌ HTTP Error syncing commands: {e}")
+        except discord.Forbidden as e:
+            print(f"❌ Forbidden error: Bot lacks permissions")
+        except Exception as e:
+            print(f"❌ Unexpected error syncing commands: {e}")
 
     async def on_message(self, message):
         """Handle direct messages to bot with conversation context."""
@@ -188,12 +196,10 @@ class StudySageBot(discord.Client):
             print(f"❌ Error in DM handler: {e}")
             await message.channel.send("Sorry, I encountered an error processing your message.")
 
-# Create the bot instance
-intents = discord.Intents.default()
-intents.message_content = True
+# Create the client instance
 client = StudySageBot(intents=intents)
 
-# NOW define the commands - tree exists because client is created
+# Define commands as GLOBAL commands
 @client.tree.command(
     name="ask",
     description="Ask a question about AI or machine learning"
@@ -268,6 +274,7 @@ async def sync_command(interaction: discord.Interaction):
         
         if DISCORD_GUILD_ID:
             guild = discord.Object(id=DISCORD_GUILD_ID)
+            client.tree.copy_global_to(guild=guild)
             synced = await client.tree.sync(guild=guild)
             message = f"✅ Synced {len(synced)} commands to this guild."
         else:
@@ -334,6 +341,3 @@ def main():
         client.run(DISCORD_TOKEN)
     except Exception as e:
         print(f"❌ Failed to start bot: {e}")
-
-if __name__ == "__main__":
-    main()
