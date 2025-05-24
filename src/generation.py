@@ -1,8 +1,9 @@
 """
-Simplified LLM response generation for better performance.
+Async LLM response generation for better performance.
 """
 
-import requests
+import aiohttp
+import asyncio
 from typing import Dict, List
 
 
@@ -35,7 +36,7 @@ class Generator:
         max_tokens: int = 400,
     ) -> str:
         """
-        Generate response with simplified prompt for better performance.
+        Generate response with async HTTP for better performance.
         """
         # Prepare context (limit to 2 most relevant docs)
         top_docs = relevant_docs[:2]
@@ -61,11 +62,13 @@ Question: {query}
 
 Give a clear, educational answer based on the context."""
         
-        # Use synchronous requests for reliability
+        # Use async HTTP requests - CRITICAL FIX
         try:
-            response = requests.post(
-                self.api_url,
-                json={
+            # Create timeout for reasonable response time
+            timeout = aiohttp.ClientTimeout(total=30)
+            
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                payload = {
                     "model": self.model,
                     "prompt": prompt,
                     "stream": False,
@@ -73,18 +76,29 @@ Give a clear, educational answer based on the context."""
                         "num_predict": max_tokens,
                         "temperature": 0.7,
                     }
-                },
-                timeout=45,  # Reasonable timeout
-            )
-            response.raise_for_status()
-            result = response.json()
-            return result["response"]
-            
-        except requests.exceptions.Timeout:
-            print(f"Ollama API timeout after 45 seconds")
+                }
+                
+                print(f"🤖 Generating response with {self.model}...")
+                
+                async with session.post(self.api_url, json=payload) as response:
+                    if response.status == 200:
+                        result = await response.json()
+                        generated_text = result.get("response", "")
+                        print(f"✅ Generated {len(generated_text)} characters")
+                        return generated_text
+                    else:
+                        error_text = await response.text()
+                        print(f"❌ Ollama API error {response.status}: {error_text}")
+                        return "I'm having trouble generating a response right now. Please try again later."
+                        
+        except asyncio.TimeoutError:
+            print(f"⏰ Ollama API timeout after 30 seconds")
             return "The response is taking too long. Please try a simpler question or try again later."
+        except aiohttp.ClientError as e:
+            print(f"🌐 Network error connecting to Ollama: {e}")
+            return "I'm having trouble connecting to the AI model. Please try again later."
         except Exception as e:
-            print(f"Error generating response: {e}")
+            print(f"❌ Unexpected error generating response: {e}")
             return "I'm having trouble generating a response right now. Please try again later."
     
     def generate_off_topic_response(self) -> str:
